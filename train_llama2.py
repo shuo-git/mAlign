@@ -115,8 +115,7 @@ def train(args):
     if args.sharegpt_en_dataset is not None:
         original_dataset += load_sharegpt_data(args.sharegpt_en_dataset, "en")
     if args.sharegpt_zh_dataset is not None:
-        for _ in range(3):
-            original_dataset += load_sharegpt_data(args.sharegpt_zh_dataset, "zh")
+        original_dataset += load_sharegpt_data(args.sharegpt_zh_dataset, "zh")
     if args.sharegpt_q_switch_dataset is not None:
         original_dataset += load_sharegpt_q_switch_data(args.sharegpt_q_switch_dataset)
     print("total training instance number:", len(original_dataset))
