@@ -88,8 +88,6 @@ def load_sharegpt_q_switch_data(data_file):
             new_data.append(data)
     return new_data
 
-# def mix_multilingual_data(en_dataset, foreign_dataset, q_switch_dataset):
-
     
 IGNORE_INDEX=-100
 
@@ -204,4 +202,4 @@ class PromptIterableDataset(IterableDataset):
 
 if __name__ == "__main__":
     import sys
-    load_sharegpt_q_switch_data(sys.argv[1])
+    qs_dataset = load_sharegpt_q_switch_data(sys.argv[1])

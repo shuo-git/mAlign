@@ -112,7 +112,12 @@ def train(args):
     bmt.synchronize()
     original_dataset = []
     if args.sharegpt_en_dataset is not None:
-        original_dataset += load_sharegpt_data(args.sharegpt_en_dataset)
+        original_dataset += load_sharegpt_data(args.sharegpt_en_dataset, "en")
+    if args.sharegpt_zh_dataset is not None:
+        for _ in range(3):
+            original_dataset += load_sharegpt_data(args.sharegpt_zh_dataset, "zh")
+    if args.sharegpt_q_switch_dataset is not None:
+        original_dataset += load_sharegpt_q_switch_data(args.sharegpt_q_switch_dataset)
     print("total training instance number:", len(original_dataset))
     
     bmt.print_rank("Model memory")
@@ -233,6 +238,8 @@ def train(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("")
     parser.add_argument("--sharegpt_en_dataset", default=None, type=str)
+    parser.add_argument("--sharegpt_zh_dataset", default=None, type=str)
+    parser.add_argument("--sharegpt_q_switch_dataset", default=None, type=str)
 
     # "/mnt/data/user/tc_agi/user/chenyulin/dataset/ultrachat_processed"
     # parser.add_argument("--sharegpt_data_file", default=None, type=str)
