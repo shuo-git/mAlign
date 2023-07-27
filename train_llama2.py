@@ -8,11 +8,12 @@ from functools import partial
 import time
 import os
 import sys
-sys.path.append("./ModelCenter")
+sys.path.append("/data/mAlign/ModelCenter")
+sys.path.append("/data/mAlign")
 from model_center.model import Llama
 from model_center.tokenizer import LlamaTokenizer
 
-from ultrachat_dataset import load_raw_data, PromptIterableDataset, collator, load_sharegpt_data, load_reasoning_data, load_zh_data
+from ultrachat_dataset import PromptIterableDataset, collator, load_sharegpt_data, load_sharegpt_q_switch_data
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 
 def get_model_tokenizer(args):
@@ -210,7 +211,7 @@ def train(args):
 
             # save model
             if global_step % args.save_step == 0:
-                save_dir = os.path.join(args.save_dir, f"{args.model}/step_{global_step}")
+                save_dir = os.path.join(args.save_dir, f"checkpoints/step_{global_step}")
                 os.makedirs(save_dir, exist_ok=True)
 
                 bmt.save(model, os.path.join(save_dir, "pytorch_model.pt"))
@@ -228,7 +229,7 @@ def train(args):
                 break
     
     # save the final model
-    save_dir = os.path.join(args.save_dir, f"{args.model}/final")
+    save_dir = os.path.join(args.save_dir, f"checkpoints/last")
     os.makedirs(save_dir, exist_ok=True)
     bmt.save(model, os.path.join(save_dir, "pytorch_model.pt"))
     tokenizer.save_pretrained(save_dir)
