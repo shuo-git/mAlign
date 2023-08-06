@@ -2,16 +2,11 @@ from transformers import LlamaConfig
 import torch, os
 import json
 from collections import OrderedDict
+import sys
+import shutil
 
-ver_layernum = [
-    # "7b",
-    "13b",
-]
-
-ver = ver_layernum[0]
-
-inpath = f"../results/llama-2-{ver}-hf"
-outpath = f"../results/llama-2-{ver}"
+inpath = sys.argv[1] # f"../results/llama-2-{ver}-hf"
+outpath = sys.argv[2] # f"../results/llama-2-{ver}"
 
 hf_config = LlamaConfig.from_pretrained(inpath)
 config = {
@@ -23,6 +18,8 @@ config = {
     'dim_head': hf_config.hidden_size // hf_config.num_attention_heads,
     'norm_eps': hf_config.rms_norm_eps,
 }
+if not os.path.exists(outpath):
+    os.makedirs(outpath)
 with open(os.path.join(outpath, "config.json"), 'w') as f:
     json.dump(config, f)
 
@@ -62,8 +59,9 @@ for lnum in range(layernum):
     
     
 for key in out:
-    out[key] = out[key].half()
+    out[key] = out[key].half().cpu()
 
-if not os.path.exists(outpath):
-    os.makedirs(outpath)
 torch.save(out, os.path.join(outpath, "pytorch_model.pt"))
+for n in ["special_tokens_map.json", "tokenizer_config.json", "tokenizer.json", "tokenizer.model"]:
+    if os.path.exists(os.path.join(inpath, n)):
+        shutil.copy(os.path.join(inpath, n), os.path.join(outpath, n))

@@ -242,19 +242,19 @@ def train(args):
                 break
         
         # save the model at the current epoch
-        save_dir = os.path.join(args.save_dir, f"checkpoints/epoch_{epoch}")
-        os.makedirs(save_dir, exist_ok=True)
+        # save_dir = os.path.join(args.save_dir, f"checkpoints/epoch_{epoch}")
+        # os.makedirs(save_dir, exist_ok=True)
 
-        bmt.save(model, os.path.join(save_dir, "pytorch_model.pt"))
-        print("saving optimizer state", os.path.join(save_dir, "optim.rank-%d.opt" % bmt.rank()))
-        torch.save(optimizer.state_dict(),
-                    os.path.join(save_dir, "optim.rank-%d.opt" % bmt.rank()))
+        # bmt.save(model, os.path.join(save_dir, "pytorch_model.pt"))
+        # print("saving optimizer state", os.path.join(save_dir, "optim.rank-%d.opt" % bmt.rank()))
+        # torch.save(optimizer.state_dict(),
+        #             os.path.join(save_dir, "optim.rank-%d.opt" % bmt.rank()))
 
-        if bmt.rank() == 0:
-            # torch.save(optimizer.state_dict(), os.path.join(save_dir, "optimizer.pt"))
-            torch.save(lr_scheduler.state_dict(), os.path.join(save_dir, "scheduler.pt"))
-            tokenizer.save_pretrained(save_dir)
-        bmt.print_rank(f"model saved at {save_dir}")
+        # if bmt.rank() == 0:
+        #     # torch.save(optimizer.state_dict(), os.path.join(save_dir, "optimizer.pt"))
+        #     torch.save(lr_scheduler.state_dict(), os.path.join(save_dir, "scheduler.pt"))
+        #     tokenizer.save_pretrained(save_dir)
+        # bmt.print_rank(f"model saved at {save_dir}")
     
     # save the final model
     # save_dir = os.path.join(args.save_dir, f"checkpoints/last")

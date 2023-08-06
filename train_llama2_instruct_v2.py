@@ -14,7 +14,7 @@ sys.path.append("/home/wangshuo1/code/mAlign")
 from model_center.model import Llama
 from model_center.tokenizer import LlamaTokenizer
 
-from llama2_dataset import PromptIterableDataset, collator, load_sharegpt_data, load_sharegpt_q_switch_data
+from llama2_instruct_v2_dataset import PromptIterableDataset, collator, load_sharegpt_data, load_sharegpt_q_switch_data
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 
 def get_model_tokenizer(args):
