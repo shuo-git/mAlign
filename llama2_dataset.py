@@ -46,6 +46,12 @@ def load_sharegpt_data(data_file, lang='en'):
             new_data.append(data)
     return new_data
 
+def load_sharegpt_pro_data(data_file, lang='en'):
+    data = json.load(open(data_file, "r"))
+    num_examples = len(data)
+    bmt.print_rank(f"[{lang}-original data] {data_file}: {num_examples} dialogues")
+    return data
+
 def load_sharegpt_q_switch_data(data_file):
     new_data = []
     data = json.load(open(data_file, "r"))
@@ -74,11 +80,13 @@ def collator(tokenizer, instances: Sequence[Dict]) -> Dict[str, torch.Tensor]:
     input_ids = torch.stack(input_ids)
     labels = torch.stack(labels)
     attention_mask = torch.stack(attention_mask)
+    ids = [instance["id"] for instance in instances]
     
     return dict(
         input_ids=input_ids,
         labels=labels,
         attention_mask=attention_mask,
+        ids = ids,
     )
 
 
@@ -138,13 +146,15 @@ class PromptIterableDataset(IterableDataset):
 
         assert len(tokenized_ids) == len(labels)
 
-        return {"input_ids": torch.LongTensor(tokenized_ids), "labels": torch.LongTensor(labels)}
+        return {"input_ids": torch.LongTensor(tokenized_ids), "labels": torch.LongTensor(labels), "id": example["id"]}
 
     def pad_truncate(self, tokenized_example):
         old_len = len(tokenized_example["input_ids"])
         tokenized_example["attention_mask"] = torch.LongTensor([1]*len(tokenized_example["input_ids"]))
         if old_len > self.max_seq_length:
             for k in tokenized_example:
+                if k == "id":
+                    continue
                 tokenized_example[k] = tokenized_example[k][:-(old_len - self.max_seq_length)]
         elif old_len < self.max_seq_length:
             tokenized_example["input_ids"] = torch.cat([torch.LongTensor([self.tokenizer.pad_token_id]*(self.max_seq_length - old_len)), tokenized_example["input_ids"]])

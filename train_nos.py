@@ -165,6 +165,7 @@ def train(args):
             st = time.time()
 
             with bmt.inspect.inspect_tensor() as inspector:
+                ids = inputs.pop("ids")
                 for k in inputs:
                     inputs[k] = inputs[k].cuda()
                 labels = inputs.pop("labels")
