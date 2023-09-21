@@ -46,12 +46,6 @@ def load_sharegpt_data(data_file, lang='en'):
             new_data.append(data)
     return new_data
 
-def load_sharegpt_pro_data(data_file, lang='en'):
-    data = json.load(open(data_file, "r"))
-    num_examples = len(data)
-    bmt.print_rank(f"[{lang}-original data] {data_file}: {num_examples} dialogues")
-    return data
-
 def load_sharegpt_q_switch_data(data_file):
     new_data = []
     data = json.load(open(data_file, "r"))
@@ -67,10 +61,15 @@ def load_sharegpt_q_switch_data(data_file):
             for i in range(len(conv)):
                 if conv[i]['from'] == 'human':
                     conv[i]['value'] = conv[i]['value'].strip() + "\n\nPlease Answer in English."
-            data = {"id": item["id"]+'_q_switch', "data": [c["value"] for c in conv]}
+            data = {"id": item["id"], "data": [c["value"] for c in conv]}
             new_data.append(data)
     return new_data
 
+def load_sharegpt_pro_data(data_file, des='en-original'):
+    data = json.load(open(data_file, "r"))
+    num_examples = len(data)
+    bmt.print_rank(f"[{des} data] {data_file}: {num_examples} dialogues")
+    return data
     
 IGNORE_INDEX=-100
 
