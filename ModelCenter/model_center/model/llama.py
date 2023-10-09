@@ -19,6 +19,9 @@ from .basemodel import BaseModel, BaseModelOutput
 from ..layer import Embedding, Encoder, Linear, RotaryEmbeddingESM
 from .config import LlamaConfig
 
+from dataclasses import dataclass, field
+from typing import List, Optional, Union
+
 class Llama(BaseModel):
     
     _CONFIG_TYPE = LlamaConfig
@@ -93,6 +96,19 @@ class Llama(BaseModel):
                 init_std = config.proj_init_std,
                 bias = config.proj_bias,
             )
+    #######
+    #实现思路：
+    #######
+    #定义一个function，可以加入LoRA, 需要输入一个LoRA config，给出LoRA的参数.
+    #这个函数可以调用self.encoder内的对应函数，根据config载入LoRA或者随机初始化一个LoRA。
+    #模型结构有一个LoRA list，LoRA_config list, 可以是某种mapping结构。默认为空。
+    #forward时，list如果不为空，根据LoRA的配置修改参数矩阵，可以参考peft的代码。
+    #添加LoRA的方法就是让LoRA list和config list append新的内容。
+    #######
+    #思路end
+    #######
+    def load_LoRA(self, path, LoRA_config):
+        self.encoder.load_LoRA(path, LoRA_config)
     
     def forward(self, 
                 input_ids: Optional[torch.Tensor] = None,
