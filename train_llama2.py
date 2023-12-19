@@ -24,17 +24,30 @@ def get_model_tokenizer(args):
     bmt.print_rank("finished")
     bmt.print_rank("loading model...")
     model = Llama.from_pretrained(args.model_name_or_path)
-    bmt.print_rank("finished")
     bmt.init_parameters(model)
+    model.load_state_dict(torch.load(args.model_name_or_path + "/pytorch_model.pt"),strict=False)
+    for n,p in model.named_parameters():
+        if "lora" in n and ("project_q" in n or "project_v" in n):
+            p.requires_grad = True
+        else:
+            p.requires_grad = False
+    bmt.print_rank("finished")
+
+    for n,p in model.named_parameters():
+        if p.requires_grad:
+            print(n)
+
+    # import pdb
+    # pdb.set_trace()
     tokenizer.pad_token = tokenizer.eos_token
     if args.load_ckpt is not None:
         bmt.print_rank(f"loading checkpoint from {args.load_ckpt}")
         bmt.load(model, os.path.join(args.load_ckpt, "checkpoint.pt"))
         for n,p in model.named_parameters():
             if "lora" in n:
-                p.require_grad = True
+                p.requires_grad = True
             else:
-                p.requires_grad = False
+                p.requiress_grad = False
         bmt.synchronize()
 
     return model, tokenizer

@@ -54,13 +54,13 @@ class DenseGatedACT(bmt.DistributedModule):
             init_std = init_std,
             bias = bias,
         )
-        self.w_0_lora = LowRankLinear(
-            in_features = dim_in,
-            out_features = dim_ff,
-            r=8,
-            lora_alpha=16,
-            lora_dropout=0.0,
-        )
+        # self.w_0_lora = LowRankLinear(
+        #     in_features = dim_in,
+        #     out_features = dim_ff,
+        #     r=8,
+        #     lora_alpha=16,
+        #     lora_dropout=0.0,
+        # )
 
         self.w_1 = Linear(
             dim_in = dim_in,
@@ -73,13 +73,13 @@ class DenseGatedACT(bmt.DistributedModule):
             init_std = init_std,
             bias = bias,
         )
-        self.w_1_lora = LowRankLinear(
-            in_features = dim_in,
-            out_features = dim_ff,
-            r=8,
-            lora_alpha=16,
-            lora_dropout=0.0,
-        )
+        # self.w_1_lora = LowRankLinear(
+        #     in_features = dim_in,
+        #     out_features = dim_ff,
+        #     r=8,
+        #     lora_alpha=16,
+        #     lora_dropout=0.0,
+        # )
 
         if activate_fn == "relu":
             self.act = torch.nn.ReLU()
@@ -103,10 +103,10 @@ class DenseGatedACT(bmt.DistributedModule):
             out (:obj:`torch.Tensor` of shape ``(batch, seq_len, dim_ff)``) 
 
         """
-        # gate_score = self.act( self.w_0(x) )
-        gate_score = self.act( self.w_0(x) + self.w_0_lora(x) )
-        # x = self.w_1(x)
-        x = self.w_1(x) + self.w_1_lora(x)
+        gate_score = self.act( self.w_0(x) )
+        # gate_score = self.act( self.w_0(x) + self.w_0_lora(x) )
+        x = self.w_1(x)
+        # x = self.w_1(x) + self.w_1_lora(x)
         x = gate_score * x
         return x
 
@@ -137,13 +137,13 @@ class DenseACT(bmt.DistributedModule):
             init_std = init_std,
             bias = bias,
         )
-        self.w_lora = LowRankLinear(
-            in_features = dim_in,
-            out_features = dim_ff,
-            r=8,
-            lora_alpha=16,
-            lora_dropout=0.0,
-        )
+        # self.w_lora = LowRankLinear(
+        #     in_features = dim_in,
+        #     out_features = dim_ff,
+        #     r=8,
+        #     lora_alpha=16,
+        #     lora_dropout=0.0,
+        # )
         
         if activate_fn == "relu":
             self.act = torch.nn.ReLU()
@@ -164,8 +164,8 @@ class DenseACT(bmt.DistributedModule):
         Return:
             out (:obj:`torch.Tensor` of shape ``(batch, seq_len, dim_ff)``) 
         """
-        # x = self.w(x)
-        x = self.w(x) + self.w_lora(x)
+        x = self.w(x)
+        # x = self.w(x) + self.w_lora(x)
         x = self.act(x)  
         
         return x
@@ -248,13 +248,13 @@ class FeedForward(bmt.DistributedModule):
             init_std = init_std,
             bias = bias,
         )
-        self.w_out_lora = LowRankLinear(
-            in_features = dim_ff,
-            out_features = dim_out,
-            r=8,
-            lora_alpha=16,
-            lora_dropout=0.0,
-        )
+        # self.w_out_lora = LowRankLinear(
+        #     in_features = dim_ff,
+        #     out_features = dim_out,
+        #     r=8,
+        #     lora_alpha=16,
+        #     lora_dropout=0.0,
+        # )
 
         self.int8 = int8
         self.length_scale = length_scale
@@ -271,6 +271,6 @@ class FeedForward(bmt.DistributedModule):
 
         if self.dropout is not None:
             x = self.dropout(x)
-            
-        x = self.w_out(x) + self.w_out_lora(x)
+        x = self.w_out(x)    
+        # x = self.w_out(x) + self.w_out_lora(x)
         return x
