@@ -9,12 +9,13 @@ from functools import partial
 import time
 import os
 import sys
-sys.path.append("/home/wangshuo1/code/mAlign/ModelCenter")
-sys.path.append("/home/wangshuo1/code/mAlign")
+sys.path.append("/home/wanghanqing/projects/mAlign/ModelCenter")
+sys.path.append("/home/wanghanqing/projects/mAlign")
 from model_center.model import Llama
 from model_center.tokenizer import LlamaTokenizer
+import random
 
-from llama2_dataset import PromptIterableDataset, collator, load_sharegpt_data, load_sharegpt_q_switch_data, load_sharegpt_pro_data
+from llama2_dataset import PromptIterableDataset, collator, load_sharegpt_data, load_alpaca_data
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 
 def get_model_tokenizer(args):
@@ -120,16 +121,21 @@ def train(args):
         writer = SummaryWriter(log_dir=args.tensorboard)
     
     original_dataset = []
-    if args.sharegpt_en_dataset is not None:
-        original_dataset += load_sharegpt_data(args.sharegpt_en_dataset, "en")
-    if args.sharegpt_zh_dataset is not None:
-        original_dataset += load_sharegpt_data(args.sharegpt_zh_dataset, "zh")
-    if args.sharegpt_q_switch_dataset is not None:
-        original_dataset += load_sharegpt_q_switch_data(args.sharegpt_q_switch_dataset)
+    if args.alpaca_dataset is not None:
+        original_dataset += load_alpaca_data(args.alpaca_dataset, "en")
+    if args.sharegpt_dataset is not None:
+        original_dataset += load_sharegpt_data(args.sharegpt_dataset, "zh")
+
+
+    #打乱拼接后的数据
+    random.shuffle(original_dataset)
+
+
+
     bmt.print_rank("total training instance number:", len(original_dataset))
     
     args.train_iters = int((args.epochs * len(original_dataset)) / (args.batch_size_per_device * bmt.world_size())) + 1
-    args.warmup_iters = int(args.train_iters * 0.04)
+    args.warmup_iters = int(args.train_iters * 0.02)
     bmt.print_rank("total training iterations:", args.train_iters)
     bmt.print_rank("warm-up iterations:", args.warmup_iters)
 
@@ -273,9 +279,9 @@ def train(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("")
-    parser.add_argument("--sharegpt_en_dataset", default=None, type=str)
-    parser.add_argument("--sharegpt_zh_dataset", default=None, type=str)
-    parser.add_argument("--sharegpt_q_switch_dataset", default=None, type=str)
+    parser.add_argument("--alpaca_dataset", default=None, type=str)
+    parser.add_argument("--sharegpt_dataset", default=None, type=str)
+
 
     parser.add_argument("--lr", type=float, default=1e-5)
     parser.add_argument("--model_name_or_path", default='/mnt/data/user/tc_agi/user/chenyulin/llama/llama-7b')
