@@ -25,7 +25,7 @@ def get_model_tokenizer(args):
     bmt.print_rank("loading model...")
     model = Llama.from_pretrained(args.model_name_or_path)
     bmt.print_rank("finished")
-    bmt.init
+    bmt.init_parameters(model)
     tokenizer.pad_token = tokenizer.eos_token
     if args.load_ckpt is not None:
         bmt.print_rank(f"loading checkpoint from {args.load_ckpt}")
