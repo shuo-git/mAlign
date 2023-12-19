@@ -30,6 +30,19 @@ def check_alternate_human_gpt(conv):
             return False
     return True
 
+def load_alpaca_data(data_file, lang='en'):
+    new_data = []
+    data = json.load(open(data_file, "r"))
+    for idx, item in enumerate(data):
+        temp_id = f"alpaca_{lang}_{idx}"
+        temp_input = (item['instruction'] + ' ' + item['input']).strip()
+        temp_output = item['output'].strip()
+        if temp_input == '' and temp_output == '':
+            continue
+        temp_data = {'id': temp_id, 'data': [temp_input, temp_output]}
+        new_data.append(temp_data)
+    return new_data
+
 def load_sharegpt_data(data_file, lang='en'):
     new_data = []
     data = json.load(open(data_file, "r"))
@@ -42,8 +55,8 @@ def load_sharegpt_data(data_file, lang='en'):
         if conv[-1]["from"] != "gpt":
             conv = conv[:-1]
         if check_alternate_human_gpt(conv):
-            data = {"id": item["id"], "data": [c["value"] for c in conv]}
-            new_data.append(data)
+            temp_data = {"id": item["id"], "data": [c["value"] for c in conv]}
+            new_data.append(temp_data)
     return new_data
 
 def load_sharegpt_q_switch_data(data_file):
@@ -61,15 +74,9 @@ def load_sharegpt_q_switch_data(data_file):
             for i in range(len(conv)):
                 if conv[i]['from'] == 'human':
                     conv[i]['value'] = conv[i]['value'].strip() + "\n\nPlease Answer in English."
-            data = {"id": item["id"], "data": [c["value"] for c in conv]}
-            new_data.append(data)
+            temp_data = {"id": item["id"], "data": [c["value"] for c in conv]}
+            new_data.append(temp_data)
     return new_data
-
-def load_sharegpt_pro_data(data_file, des='en-original'):
-    data = json.load(open(data_file, "r"))
-    num_examples = len(data)
-    bmt.print_rank(f"[{des} data] {data_file}: {num_examples} dialogues")
-    return data
     
 IGNORE_INDEX=-100
 
