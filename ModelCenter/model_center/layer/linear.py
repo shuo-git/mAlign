@@ -39,18 +39,32 @@ class Linear(bmt.DistributedModule):
                  init_mean : float = 0.0,
                  init_std : float = 1,
                  bias : bool = False,
+                 cps: int = 0,
                 ):
         super().__init__()
         self.dim_in = self.in_features = dim_in
         self.dim_out = self.out_features = dim_out
-        self.weight = bmt.DistributedParameter(
-            torch.empty((dim_out, dim_in), dtype=dtype),
-            init_method=bmt.ParameterInitializer(torch.nn.init.normal_, mean=init_mean, std=init_std)
-        )
-        self.bias = bmt.DistributedParameter(
-            torch.empty((dim_out,), dtype=dtype),
-            init_method=bmt.ParameterInitializer(torch.nn.init.zeros_)
-        ) if bias else None
+        if cps == 1: #init for lora_B
+            self.weight = bmt.DistributedParameter(
+                torch.empty((dim_out, dim_in), dtype=dtype),
+                init_method=bmt.ParameterInitializer(torch.nn.init.zeros_),
+            )
+            self.bias = None
+        elif cps == 2: #init for lora_A
+            self.weight = bmt.DistributedParameter(
+                torch.empty((dim_out, dim_in), dtype=dtype),
+                init_method=bmt.ParameterInitializer(torch.nn.init.kaiming_uniform_, a=math.sqrt(5)),
+            )
+            self.bias = None
+        else:
+            self.weight = bmt.DistributedParameter(
+                torch.empty((dim_out, dim_in), dtype=dtype),
+                init_method=bmt.ParameterInitializer(torch.nn.init.normal_, mean=init_mean, std=init_std)
+            )
+            self.bias = bmt.DistributedParameter(
+                torch.empty((dim_out,), dtype=dtype),
+                init_method=bmt.ParameterInitializer(torch.nn.init.zeros_)
+            ) if bias else None
         self.length_scale = length_scale
         self.length_scale_before = length_scale_before
         self.int8 = int8

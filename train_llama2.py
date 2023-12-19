@@ -28,6 +28,12 @@ def get_model_tokenizer(args):
     if args.load_ckpt is not None:
         bmt.print_rank(f"loading checkpoint from {args.load_ckpt}")
         bmt.load(model, os.path.join(args.load_ckpt, "checkpoint.pt"))
+        for n,p in model.named_parameters():
+            if "lora" in n:
+                p.require_grad = True
+            else:
+                p.requires_grad = False
+        bmt.synchronize()
 
     return model, tokenizer
 

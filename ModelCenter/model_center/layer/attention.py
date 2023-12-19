@@ -20,6 +20,7 @@ import torch
 import bmtrain as bmt
 import torch.nn.functional as F
 from .linear import Linear
+from .lora import LowRankLinear
 
 
 class Attention(bmt.DistributedModule):
@@ -77,6 +78,13 @@ class Attention(bmt.DistributedModule):
             init_std = init_std,
             bias = bias,
         )
+        self.project_q_lora = LowRankLinear(
+            in_features = dim_in,
+            out_features = num_heads * dim_head,
+            r=8,
+            lora_alpha=16,
+            lora_dropout=0.0,
+        )
 
         self.project_k = Linear(
             dim_in = dim_in,
@@ -88,6 +96,13 @@ class Attention(bmt.DistributedModule):
             init_mean = init_mean,
             init_std = init_std,
             bias = bias,
+        )
+        self.project_k_lora = LowRankLinear(
+            in_features = dim_in,
+            out_features = num_heads_kv * dim_head,
+            r=8,
+            lora_alpha=16,
+            lora_dropout=0.0,
         )
 
         self.project_v = Linear(
@@ -101,6 +116,13 @@ class Attention(bmt.DistributedModule):
             init_std = init_std,
             bias = bias,
         )
+        self.project_v_lora = LowRankLinear(
+            in_features = dim_in,
+            out_features = num_heads_kv * dim_head,
+            r=8,
+            lora_alpha=16,
+            lora_dropout=0.0,
+        )
 
         self.attention_out = Linear(
             dim_in = num_heads * dim_head,
@@ -113,6 +135,14 @@ class Attention(bmt.DistributedModule):
             init_std = init_std,
             bias = bias,
         )
+        self.attention_out_lora = LowRankLinear(
+            in_features = num_heads * dim_head,
+            out_features = dim_out,
+            r=8,
+            lora_alpha=16,
+            lora_dropout=0.0,
+        )
+
         self.init_mean = init_mean
         self.init_std = init_std
         self.dim_in = dim_in
@@ -161,9 +191,13 @@ class Attention(bmt.DistributedModule):
         len_q = query.size(1)
         len_k = key_value.size(1)
 
-        h_q = self.project_q(query)             # (batch, len_q, num_heads * dim_head)
-        h_k = self.project_k(key_value)         # (batch, len_k, num_heads * dim_head)
-        h_v = self.project_v(key_value)         # (batch, len_k, num_heads * dim_head)
+        # h_q = self.project_q(query)             # (batch, len_q, num_heads * dim_head)
+        # h_k = self.project_k(key_value)         # (batch, len_k, num_heads * dim_head)
+        # h_v = self.project_v(key_value)         # (batch, len_k, num_heads * dim_head)
+
+        h_q = self.project_q(query) + self.project_q_lora(query)
+        h_k = self.project_k(key_value) + self.project_k_lora(key_value)
+        h_v = self.project_v(key_value) + self.project_v_lora(key_value)
 
         h_q = h_q.view(batch_size, len_q, self.num_heads, self.dim_head).permute(0, 2, 1, 3)   # (batch, num_heads, len_q, dim_head)
         h_k = h_k.view(batch_size, len_k, self.num_heads_kv, self.dim_head).permute(0, 2, 1, 3)   # (batch, num_heads_kv, len_k, dim_head)
@@ -227,7 +261,8 @@ class Attention(bmt.DistributedModule):
         score = score.reshape(batch_size, len_q, self.num_heads * self.dim_head) # (batch, len_q, num_heads * dim_head)
 
         # (1#batch, dim_model, num_heads * dim_head) @ (batch, num_heads * dim_head, len_q) = (batch, dim_model, len_q)
-        score = self.attention_out(score)
+        # score = self.attention_out(score)
+        score = self.attention_out(score) + self.attention_out_lora(score)
 
         if use_cache:
             return score, current_key_value
