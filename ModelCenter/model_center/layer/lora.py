@@ -15,6 +15,8 @@ class LowRankLinear(bmt.DistributedModule):
         r=8,
         lora_alpha=16,
         lora_dropout=0.0,
+        lora_A_cps = 2,
+        lora_B_cps = 1,
     ):
         super().__init__()
         self.r = r

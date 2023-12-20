@@ -18,10 +18,13 @@ from typing import Optional
 
 import torch
 import bmtrain as bmt
+import torch.nn as nn
 import torch.nn.functional as F
 from .linear import Linear
 from .lora import LowRankLinear
+from .group_lora import attention_gate
 
+LORA_LIST=['zh','en','code']
 
 class Attention(bmt.DistributedModule):
 
@@ -78,13 +81,25 @@ class Attention(bmt.DistributedModule):
             init_std = init_std,
             bias = bias,
         )
-        self.project_q_lora = LowRankLinear(
-            in_features = dim_in,
-            out_features = num_heads * dim_head,
-            r=64,
-            lora_alpha=64,
-            lora_dropout=0.05,
+        self.project_q_lora = nn.ModuleDict({})
+
+        for lora in LORA_LIST:
+            self.project_q_lora[lora] = LowRankLinear(
+                in_features = dim_in,
+                out_features = num_heads * dim_head,
+                r=64,
+                lora_alpha=64,
+                lora_dropout=0.05,
+            )
+
+
+        self.project_q_gate = attention_gate(
+            output_size = num_heads * dim_head,
+            gate_lora_r = 8,
+            gate_lora_alpha = 8,
+            gate_lora_dropout = 0.05,
         )
+        
 
         self.project_k = Linear(
             dim_in = dim_in,
@@ -116,12 +131,22 @@ class Attention(bmt.DistributedModule):
             init_std = init_std,
             bias = bias,
         )
-        self.project_v_lora = LowRankLinear(
-            in_features = dim_in,
-            out_features = num_heads_kv * dim_head,
-            r=64,
-            lora_alpha=64,
-            lora_dropout=0.05,
+        self.project_v_lora = nn.ModuleDict({})
+
+        for lora in LORA_LIST:
+            self.project_v_lora[lora] = LowRankLinear(
+                in_features = dim_in,
+                out_features = num_heads_kv * dim_head,
+                r=64,
+                lora_alpha=64,
+                lora_dropout=0.05,
+            )
+
+        self.project_v_gate = attention_gate(
+            output_size = num_heads * dim_head,
+            gate_lora_r = 8,
+            gate_lora_alpha = 8,
+            gate_lora_dropout = 0.05,
         )
 
         self.attention_out = Linear(
@@ -195,6 +220,9 @@ class Attention(bmt.DistributedModule):
         h_k = self.project_k(key_value)         # (batch, len_k, num_heads * dim_head)
         # h_v = self.project_v(key_value)         # (batch, len_k, num_heads * dim_head)
 
+        ###处理hidden, delta_hiddens
+        ### hidden_input = hidden.clone().detach()
+        
         h_q = self.project_q(query) + self.project_q_lora(query)
         # h_k = self.project_k(key_value) + self.project_k_lora(key_value)
         h_v = self.project_v(key_value) + self.project_v_lora(key_value)
