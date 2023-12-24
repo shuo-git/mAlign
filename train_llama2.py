@@ -15,7 +15,7 @@ from model_center.model import Llama
 from model_center.tokenizer import LlamaTokenizer
 import random
 
-from llama2_dataset import PromptIterableDataset, collator, load_sharegpt_data, load_alpaca_data
+from llama2_dataset import PromptIterableDataset, collator, load_sharegpt_data, load_alpaca_data, load_meta_math_data
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 
 def get_model_tokenizer(args):
@@ -27,7 +27,8 @@ def get_model_tokenizer(args):
     bmt.init_parameters(model)
     model.load_state_dict(torch.load(args.model_name_or_path + "/pytorch_model.pt"),strict=False)
     for n,p in model.named_parameters():
-        if "lora" in n and ("project_q" in n or "project_v" in n):
+        # if "lora" in n and ("project_q" in n or "project_v" in n):
+        if "lora" in n:
             p.requires_grad = True
         else:
             p.requires_grad = False
@@ -136,10 +137,12 @@ def train(args):
     
     original_dataset = []
     if args.alpaca_dataset is not None:
-        original_dataset += load_alpaca_data(args.alpaca_dataset, "en")
-    if args.sharegpt_dataset is not None:
-        original_dataset += load_sharegpt_data(args.sharegpt_dataset, "zh")
-
+        lang = args.alpaca_dataset.split('/')[-1].split('.')[0]
+        original_dataset += load_alpaca_data(args.alpaca_dataset, lang)
+    # if args.sharegpt_dataset is not None:
+    #     original_dataset += load_sharegpt_data(args.sharegpt_dataset, "zh")
+    if args.metamath_dataset is not None:
+        original_dataset += load_meta_math_data(args.metamath_dataset)
 
     #打乱拼接后的数据
     random.shuffle(original_dataset)
@@ -149,7 +152,7 @@ def train(args):
     bmt.print_rank("total training instance number:", len(original_dataset))
     
     args.train_iters = int((args.epochs * len(original_dataset)) / (args.batch_size_per_device * bmt.world_size())) + 1
-    args.warmup_iters = int(args.train_iters * 0.02)
+    args.warmup_iters = int(args.train_iters * 0.04)
     bmt.print_rank("total training iterations:", args.train_iters)
     bmt.print_rank("warm-up iterations:", args.warmup_iters)
 
@@ -177,7 +180,7 @@ def train(args):
         dataset = dataset[bmt.rank() * data_per_gpu : (bmt.rank() + 1) * data_per_gpu]
 
 
-        dataset = PromptIterableDataset(dataset, tokenizer = tokenizer, max_seq_length = args.max_seq_length, teacher_forcing=True, truncate_method="tail")
+        dataset = PromptIterableDataset(dataset, tokenizer = tokenizer, max_seq_length = args.max_seq_length, teacher_forcing=True, truncate_method="tail",system_prompt = args.system_prompt)
         dataloader = DataLoader(dataset, batch_size=args.batch_size_per_device, collate_fn=partial(collator, tokenizer))
 
         if global_step >= args.train_iters:
@@ -250,20 +253,20 @@ def train(args):
 
 
             # save model
-            # if global_step % args.save_step == 0:
-            #     save_dir = os.path.join(args.save_dir, f"checkpoints/step_{global_step}")
-            #     os.makedirs(save_dir, exist_ok=True)
+            if global_step % args.save_step == 0:
+                save_dir = os.path.join(args.save_dir, f"checkpoints/step_{global_step}")
+                os.makedirs(save_dir, exist_ok=True)
 
-            #     bmt.save(model, os.path.join(save_dir, "pytorch_model.pt"))
-            #     print("saving optimizer state", os.path.join(save_dir, "optim.rank-%d.opt" % bmt.rank()))
-            #     torch.save(optimizer.state_dict(),
-            #                os.path.join(save_dir, "optim.rank-%d.opt" % bmt.rank()))
+                bmt.save(model, os.path.join(save_dir, "pytorch_model.pt"))
+                print("saving optimizer state", os.path.join(save_dir, "optim.rank-%d.opt" % bmt.rank()))
+                torch.save(optimizer.state_dict(),
+                           os.path.join(save_dir, "optim.rank-%d.opt" % bmt.rank()))
 
-            #     if bmt.rank() == 0:
-            #         # torch.save(optimizer.state_dict(), os.path.join(save_dir, "optimizer.pt"))
-            #         torch.save(lr_scheduler.state_dict(), os.path.join(save_dir, "scheduler.pt"))
-            #         tokenizer.save_pretrained(save_dir)
-            #     bmt.print_rank(f"model saved at {save_dir}")
+                if bmt.rank() == 0:
+                    # torch.save(optimizer.state_dict(), os.path.join(save_dir, "optimizer.pt"))
+                    torch.save(lr_scheduler.state_dict(), os.path.join(save_dir, "scheduler.pt"))
+                    tokenizer.save_pretrained(save_dir)
+                bmt.print_rank(f"model saved at {save_dir}")
             
             if global_step == args.train_iters:
                 break
@@ -294,7 +297,8 @@ def train(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("")
     parser.add_argument("--alpaca_dataset", default=None, type=str)
-    parser.add_argument("--sharegpt_dataset", default=None, type=str)
+    parser.add_argument("--metamath_dataset", default=None, type=str)
+    parser.add_argument("--system_prompt", default=None, type=str)
 
 
     parser.add_argument("--lr", type=float, default=1e-5)
@@ -305,7 +309,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_seq_length", default=2048, type=int)
     parser.add_argument("--batch_size_per_device", default=2, type=int)
     parser.add_argument("--logging_step", default=100, type=int)
-    # parser.add_argument("--save_step", default=50000, type=int)
+    parser.add_argument("--save_step", default=50000, type=int)
     parser.add_argument("--data_dir", default=None, type=str)
     
     parser.add_argument("--gradient_accumulation_steps", default=1, type=int)
@@ -338,6 +342,8 @@ if __name__ == "__main__":
 
 
     args = parser.parse_args()
+    if args.system_prompt is not None:
+        args.system_prompt = args.system_prompt.replace('-',' ') # ' '不能正确的输入在.sh的超参数中，用-号替代，这里替换回来
 
     train(args)
     args.model = args.model_name_or_path.split("/")[-1]
