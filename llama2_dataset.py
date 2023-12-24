@@ -30,6 +30,21 @@ def check_alternate_human_gpt(conv):
             return False
     return True
 
+def load_alpaca_data(data_file, lang='en'):
+    new_data = []
+    content = json.load(open(data_file, 'r'))
+    num_examples = len(content)
+    bmt.print_rank(f"[{lang}-original data] {data_file}: {num_examples} dialogues")
+    for item in content:
+        temp_id = item['id']
+        temp_input = (item['instruction'].strip() + ' ' + item['input'].strip()).strip()
+        temp_output = item['output'].strip()
+        if temp_input == '' or temp_output == '':
+            continue
+        data = {'id': temp_id, 'data': [temp_input, temp_output]}
+        new_data.append(data)
+    return new_data
+
 def load_sharegpt_data(data_file, lang='en'):
     new_data = []
     data = json.load(open(data_file, "r"))
