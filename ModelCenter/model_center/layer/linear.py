@@ -56,6 +56,8 @@ class Linear(bmt.DistributedModule):
                 init_method=bmt.ParameterInitializer(torch.nn.init.kaiming_uniform_, a=math.sqrt(5)),
             )
             self.bias = None
+        elif cps == 3:
+            pass
         else:
             self.weight = bmt.DistributedParameter(
                 torch.empty((dim_out, dim_in), dtype=dtype),

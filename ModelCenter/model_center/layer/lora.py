@@ -15,16 +15,24 @@ class LowRankLinear(bmt.DistributedModule):
         r=8,
         lora_alpha=16,
         lora_dropout=0.0,
+        use_decomposition=False,
     ):
         super().__init__()
         self.r = r
         self.lora_alpha = lora_alpha
         self.lora_dropout = lora_dropout
+        self.use_decomposition = use_decomposition
         if lora_dropout > 0.:
             self.lora_dropout = nn.Dropout(p=lora_dropout)
         else:
             self.lora_dropout = lambda x: x
-        if r > 0:
+            
+        if self.use_decomposition and r > 0:
+            self.lora_A = Linear(dim_out = r, dim_in = in_features, cps = 2)
+            self.lora_mid =  Linear(dim_out = r, dim_in = r)
+            self.lora_B = Linear(dim_out = out_features, dim_in = r, cps = 1)
+            self.scaling = self.lora_alpha / self.r
+        elif r > 0:
             self.lora_A = Linear(dim_out = r, dim_in = in_features, cps = 2)
             self.lora_B = Linear(dim_out = out_features, dim_in = r, cps = 1)
             self.scaling = self.lora_alpha / self.r

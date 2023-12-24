@@ -9,8 +9,8 @@ from functools import partial
 import time
 import os
 import sys
-sys.path.append("/home/wanghanqing/projects/mAlign/ModelCenter")
-sys.path.append("/home/wanghanqing/projects/mAlign")
+sys.path.append("/home/pingbowen/workspace/mAlign/ModelCenter")
+sys.path.append("/home/pingbowen/workspace/mAlign")
 from model_center.model import Llama
 from model_center.tokenizer import LlamaTokenizer
 import random
