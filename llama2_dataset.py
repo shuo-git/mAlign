@@ -42,6 +42,36 @@ def load_alpaca_data(data_file, lang='en'):
         temp_data = {'id': temp_id, 'data': [temp_input, temp_output]}
         new_data.append(temp_data)
     return new_data
+# def meta_math_prompt(instruction):
+#     formulated_instruction = "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\n" + instruction + "\n\n### Response:"
+#     return formulated_instruction
+
+def load_meta_math_data(data_file):
+    new_data = []
+    data = json.load(open(data_file, "r"))
+    for idx, item in enumerate(data):
+        temp_id = f"MetaMath_{idx}_{item['type']}"
+        # temp_input = meta_math_prompt(item['query']).strip()
+        temp_input = item['query'].strip()
+        temp_output = item['response'].strip()
+        if temp_input == '' and temp_output == '':
+            continue
+        temp_data = {'id': temp_id, 'data': [temp_input, temp_output]}
+        new_data.append(temp_data)
+    return new_data
+
+def load_alpaca_data(data_file, lang='en'):
+    new_data = []
+    data = json.load(open(data_file, "r"))
+    for idx, item in enumerate(data):
+        temp_id = f"alpaca_{lang}_{idx}"
+        temp_input = (item['instruction'] + ' ' + item['input']).strip()
+        temp_output = item['output'].strip()
+        if temp_input == '' and temp_output == '':
+            continue
+        temp_data = {'id': temp_id, 'data': [temp_input, temp_output]}
+        new_data.append(temp_data)
+    return new_data
 
 def load_sharegpt_data(data_file, lang='en'):
     new_data = []
@@ -104,6 +134,7 @@ class PromptIterableDataset(IterableDataset):
                  max_seq_length: Optional[int] = 512,
                  teacher_forcing: Optional[bool] = True,
                  truncate_method: Optional[str] = "tail",
+                 system_prompt: Optional[str] = None,
                 ):
         assert hasattr(raw_dataset, "__iter__"), f"The dataset must have __iter__ method. dataset is {raw_dataset}"
         assert hasattr(raw_dataset, "__len__"), f"The dataset must have __len__ method. dataset is {raw_dataset}"
@@ -117,6 +148,7 @@ class PromptIterableDataset(IterableDataset):
         self.tokenizer = tokenizer
         self.truncate_method = truncate_method
         self.max_seq_length = max_seq_length
+        self.system_prompt = system_prompt
         assert self.truncate_method == "tail", bmt.print_rank("only tail truncate support")
     
 
@@ -127,7 +159,12 @@ class PromptIterableDataset(IterableDataset):
 
     def tokenize_example(self, example):
         # system = "<s>[INST] <<SYS>>\nYou are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe. Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.\n\nIf a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information.\n<</SYS>>\n\n"
-        system = "<s>[INST] "
+        if self.system_prompt is not None:
+            system = "<s>[INST] <<SYS>>\n"+ self.system_prompt +"\n<</SYS>>\n\n"
+        else:
+            system = "<s>[INST] "
+        # import pdb
+        # pdb.set_trace()
         labels = []
         tokenized_ids = []
         for i, c in enumerate(example["data"]):
