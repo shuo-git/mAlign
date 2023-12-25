@@ -64,12 +64,13 @@ if __name__ == "__main__":
     elif "70b" in model_type:
         param_size = "70b"
     else:
-        raise ValueError(f"cannot detect param_size automatically from {model_type}")
+        param_size = "7b"
+        # raise ValueError(f"cannot detect param_size automatically from {model_type}")
     
     if "chat" in model_type:
         param_size += "-chat"
     
-    hf_ref_config_path = f"/home/wangshuo1/opensource_models/meta-llama/Llama-2-{param_size}-hf/config.json"
+    hf_ref_config_path = f"/home/wanghanqing/projects/models/Llama-2-7b-hf/config.json"
     with open(hf_ref_config_path, "r") as fr:
         base_hf_config = json.load(fr)
 
@@ -80,7 +81,7 @@ if __name__ == "__main__":
         hf_state_dict = transform_to_hf(torch.load(os.path.join(in_path, "pytorch_model.pt")), param_size)
         print("done")
         torch.save(hf_state_dict, os.path.join(out_path, "pytorch_model.bin"))
-    base_dir = f"/home/wangshuo1/opensource_models/meta-llama/Llama-2-{param_size}-mc"
+    base_dir = f"/home/wanghanqing/projects/exp/mAlign_exp/lang_LoRAs/en/checkpoints/epoch_2"
     add_configs(base_dir, out_path, base_hf_config)
     for n in ["generation_config.json", "tokenizer_config.json", "added_tokens.json", "special_tokens_map.json", "tokenizer.model"]:
         if os.path.exists(os.path.join(base_dir, n)):
