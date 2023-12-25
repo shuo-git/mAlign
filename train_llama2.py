@@ -136,9 +136,14 @@ def train(args):
         writer = SummaryWriter(log_dir=args.tensorboard)
     
     original_dataset = []
+    # import pdb
+    # pdb.set_trace()
     if args.alpaca_dataset is not None:
         lang = args.alpaca_dataset.split('/')[-1].split('.')[0]
         original_dataset += load_alpaca_data(args.alpaca_dataset, lang)
+    if args.alpaca_dataset_2 is not None:
+        lang = args.alpaca_dataset_2.split('/')[-1].split('.')[0]
+        original_dataset += load_alpaca_data(args.alpaca_dataset_2, lang)
     # if args.sharegpt_dataset is not None:
     #     original_dataset += load_sharegpt_data(args.sharegpt_dataset, "zh")
     if args.metamath_dataset is not None:
@@ -297,6 +302,7 @@ def train(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("")
     parser.add_argument("--alpaca_dataset", default=None, type=str)
+    parser.add_argument("--alpaca_dataset_2", default=None, type=str)
     parser.add_argument("--metamath_dataset", default=None, type=str)
     parser.add_argument("--system_prompt", default=None, type=str)
 
