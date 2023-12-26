@@ -14,10 +14,11 @@ sys.path.append("/home/pingbowen/workspace/mAlign")
 from model_center.model import Llama
 from model_center.tokenizer import LlamaTokenizer
 import random
-
+from transformers import AutoTokenizer, AutoModelForCausalLM
 from llama2_dataset import PromptIterableDataset, collator, load_sharegpt_data, load_alpaca_data, load_meta_math_data
+from Init_lora import get_lora_weight,init_lora_weight
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
-
+   
 def get_model_tokenizer(args):
     bmt.print_rank("loading tokenizer...")
     tokenizer = LlamaTokenizer.from_pretrained(args.model_name_or_path)
@@ -25,6 +26,11 @@ def get_model_tokenizer(args):
     bmt.print_rank("loading model...")
     model = Llama.from_pretrained(args.model_name_or_path)
     bmt.init_parameters(model)
+    if args.enable_init:
+        finetuned_model = "/data/public/opensource_models/WizardLM/WizardMath-7B-V1.0"
+        pretrained_model = "/data/public/opensource_models/meta-llama/Llama-2-7b-hf"
+        init_lora_weight(model,finetuned_model=finetuned_model,pretrained_model=pretrained_model)
+    
     model.load_state_dict(torch.load(args.model_name_or_path + "/pytorch_model.pt"),strict=False)
     for n,p in model.named_parameters():
         # if "lora" in n and ("project_q" in n or "project_v" in n):
@@ -34,9 +40,9 @@ def get_model_tokenizer(args):
             p.requires_grad = False
     bmt.print_rank("finished")
 
-    for n,p in model.named_parameters():
-        if p.requires_grad:
-            print(n)
+    # for n,p in model.named_parameters():
+    #     if p.requires_grad:
+    #         print(n)
 
     # import pdb
     # pdb.set_trace()
@@ -322,7 +328,7 @@ if __name__ == "__main__":
     parser.add_argument("--train-iters", type=int, default=2000000)
     parser.add_argument("--save_dir", type=str, default="/data/models/chenyulin/ultrachat-llama")
     parser.add_argument("--max_sample", type=int, default=None, help="max training sample num for ultrachat")
-
+    parser.add_argument("--enable_init",action="store_true", help="lora weight form Wizard_math")
 
 
     parser.add_argument("--warmup_iters", type=int, default=1000)

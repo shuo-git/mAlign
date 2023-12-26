@@ -4,27 +4,56 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import numpy as np
-from lorahub.algorithm import lorahub_learning, lorahub_inference
-from lorahub.constant import LORA_MODULE_NAMES
+# from lorahub.algorithm import lorahub_learning, lorahub_inference
+# from lorahub.constant import LORA_MODULE_NAMES
 import random
+import bmtrain as bmt
+from model_center.model import Llama
+from model_center.tokenizer import LlamaTokenizer
+import argparse
+import sys
+from Init_lora import get_lora_weight,init_lora_weight
+sys.path.append("/home/pingbowen/workspace/mAlign/ModelCenter")
+sys.path.append("/home/pingbowen/workspace/mAlign")
 
+def get_model_tokenizer(args):
+    
+    bmt.init_distributed(
+        seed=args.seed,
+        zero_level=3,
+    )
+    
+    
+    bmt.print_rank("loading tokenizer...")
+    tokenizer = LlamaTokenizer.from_pretrained(args.model_name_or_path)
+    bmt.print_rank("finished")
+    bmt.print_rank("loading model...")
+    model = Llama.from_pretrained(args.model_name_or_path)
+    bmt.init_parameters(model)
+    
+    model.load_state_dict(torch.load(args.model_name_or_path + "/pytorch_model.pt"),strict=False)
+    
+    # for n,p in model.named_parameters():
+    #     if p.requires_grad:
+    #         print(n)
+    print(f"{dict(model.named_parameters())['encoder.layers.0.self_att.self_attention.project_q_lora.lora_A.weight']} \n {dict(model.named_parameters())['encoder.layers.0.self_att.self_attention.project_q.weight'].shape}") 
+    
+    if args.enable_init:
+        finetuned_model = "/data/public/opensource_models/WizardLM/WizardMath-7B-V1.0"
+        pretrained_model = "/data/public/opensource_models/meta-llama/Llama-2-7b-hf"
+        init_lora_weight(model,finetuned_model=finetuned_model,pretrained_model=pretrained_model,dim=64)
 
-def get_examples_for_learning():
-    """
-    Get a few examples to learn to compose given LoRA modules
-    """
-    return [
-        {"input":
-            "Infer the date from context.\n\nQ: Jane is celebrating the last day of Jan 2012. What is the date tomorrow in MM/DD/YYYY?\nOptions:\n(A) 02/02/2012\n(B) 02/15/2012\n(C) 01/25/2012\n(D) 04/22/2012\n(E) 02/01/2012\n(F) 02/11/2012\nA:", "output": "(E)"}
-    ]
+    print(f"{dict(model.named_parameters())['encoder.layers.0.self_att.self_attention.project_q.weight']} \n {dict(model.named_parameters())['encoder.layers.0.self_att.self_attention.project_q.weight'].shape}") 
+    
 
-def get_lora_module_list():
-    """
-    You can have a custom filtering strategy to select the modules to be used in the composition. Here we randomly select 20 modules.
-    """
-    random.seed(42)
-    return random.sample(LORA_MODULE_NAMES, 20)
-
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser("")
+    parser.add_argument("--model_name_or_path", default='/data/public/opensource_models/meta-llama/Llama-2-7b-mc')
+    parser.add_argument("--seed",type=int,default=0)
+    parser.add_argument("--enable_init",action="store_true", help="lora weight form Wizard_math")
+    args = parser.parse_args()
+    
+    get_model_tokenizer(args)
 
 # # get a list of modules to be used in the composition
 # modules = get_lora_module_list()
@@ -46,15 +75,8 @@ def get_lora_module_list():
 # print("module_weights:", module_weights)
 
 
-finetuned_model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path="/data/public/opensource_models/WizardLM/WizardMath-7B-V1.0/", device_map="cpu")
-pretrained_model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path="/data/public/opensource_models/meta-llama/Llama-2-7b-hf", device_map="cpu")
 
-param_dict = {param_name: param_value for param_name, param_value in pretrained_model.named_parameters()}
 
-for param_name, param_value in finetuned_model.named_parameters():
-    if "q_proj" in param_name:
-        delta = param_value - param_dict[param_name]
-        U , S , V = torch.svd(delta)
 
 # dim = [-0.001,0,0.001]
 

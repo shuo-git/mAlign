@@ -27,17 +27,13 @@ class LowRankLinear(bmt.DistributedModule):
         else:
             self.lora_dropout = lambda x: x
             
-        if self.use_decomposition and r > 0:
+        if r > 0:
             self.lora_A = Linear(dim_out = r, dim_in = in_features, cps = 2)
-            self.lora_mid =  Linear(dim_out = r, dim_in = r)
-            self.lora_B = Linear(dim_out = out_features, dim_in = r, cps = 1)
-            self.scaling = self.lora_alpha / self.r
-        elif r > 0:
-            self.lora_A = Linear(dim_out = r, dim_in = in_features, cps = 2)
+            self.lora_mid = Linear(dim_out = r, dim_in = r,cps=3)
             self.lora_B = Linear(dim_out = out_features, dim_in = r, cps = 1)
             self.scaling = self.lora_alpha / self.r
 
     def forward(self, x):
         # import pdb
         # pdb.set_trace()
-        return (self.lora_B(self.lora_A(self.lora_dropout(x)))) * self.scaling
+        return (self.lora_B(self.lora_mid(self.lora_A(self.lora_dropout(x))))) * self.scaling

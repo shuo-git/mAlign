@@ -57,7 +57,11 @@ class Linear(bmt.DistributedModule):
             )
             self.bias = None
         elif cps == 3:
-            pass
+            self.weight = bmt.DistributedParameter(
+                torch.empty((dim_out, dim_in), dtype=dtype),
+                init_method=bmt.ParameterInitializer(torch.nn.init.ones_),
+            )
+            self.bias = None
         else:
             self.weight = bmt.DistributedParameter(
                 torch.empty((dim_out, dim_in), dtype=dtype),
