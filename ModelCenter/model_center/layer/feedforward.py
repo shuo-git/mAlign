@@ -19,6 +19,7 @@ import bmtrain as bmt
 from .linear import Linear
 from .lora import LowRankLinear
 import math
+import torch.nn as nn
 
 @torch.jit.script
 def gelu_new(x):
@@ -27,6 +28,20 @@ def gelu_new(x):
     the Gaussian Error Linear Units paper: https://arxiv.org/abs/1606.08415
     """
     return 0.5 * x * (1.0 + torch.tanh(math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))))
+
+
+def get_combined_delta_hiddens(loras, x, lora_weights):
+            # import pdb
+            # pdb.set_trace()
+            #lora_weights: (batch_size, len_q, len(loras),1) 做过unsqueeze了
+            delta_hiddens = {}
+            for lora_name in loras.keys():
+                delta_hiddens[lora_name] = loras[lora_name](x)
+            delta_hiddens = [delta_hidden for delta_hidden in delta_hiddens.values()]
+            delta_hiddens = torch.stack(delta_hiddens, dim=-1) #(batch_size, len_q, num_heads * dim_head, len(loras)
+            combined_delta_hiddens = torch.matmul(delta_hiddens, lora_weights)
+            combined_delta_hiddens = combined_delta_hiddens.sum(dim=-1)
+            return combined_delta_hiddens
 
 class DenseGatedACT(bmt.DistributedModule):
 
@@ -54,13 +69,14 @@ class DenseGatedACT(bmt.DistributedModule):
             init_std = init_std,
             bias = bias,
         )
-        self.w_0_lora = LowRankLinear(
-            in_features = dim_in,
-            out_features = dim_ff,
-            r=64,
-            lora_alpha=16,
-            lora_dropout=0.1,
-        )
+        # self.w_0_lora = LowRankLinear(
+        #     in_features = dim_in,
+        #     out_features = dim_ff,
+        #     r=64,
+        #     lora_alpha=16,
+        #     lora_dropout=0.1,
+        # )
+        self.w_0_lora = nn.ModuleDict({})
 
         self.w_1 = Linear(
             dim_in = dim_in,
@@ -73,13 +89,15 @@ class DenseGatedACT(bmt.DistributedModule):
             init_std = init_std,
             bias = bias,
         )
-        self.w_1_lora = LowRankLinear(
-            in_features = dim_in,
-            out_features = dim_ff,
-            r=64,
-            lora_alpha=16,
-            lora_dropout=0.1,
-        )
+        # self.w_1_lora = LowRankLinear(
+        #     in_features = dim_in,
+        #     out_features = dim_ff,
+        #     r=64,
+        #     lora_alpha=16,
+        #     lora_dropout=0.1,
+        # )
+        self.w_1_lora = nn.ModuleDict({})
+
 
         if activate_fn == "relu":
             self.act = torch.nn.ReLU()
@@ -91,8 +109,24 @@ class DenseGatedACT(bmt.DistributedModule):
             self.act = torch.nn.functional.silu
         else:
             raise ValueError("Unsupported activation function: %s" % (activate_fn))
+        for module in [self.w_0_lora, self.w_1_lora]:
+            module['zh'] = LowRankLinear(
+                in_features = dim_in,
+                out_features = dim_ff,
+                r=64,
+                lora_alpha = 16,
+                lora_dropout=0.1,
+            )
+            module['math'] = LowRankLinear(
+                in_features = dim_in,
+                out_features = dim_ff,
+                r=64,
+                lora_alpha = 16,
+                lora_dropout=0.1,
+            )
+            
     
-    def forward(self, x : torch.Tensor):
+    def forward(self, x : torch.Tensor, lora_weights : torch.Tensor = None):
         """ This model inherits from bmt.DistributedModule. 
             Transform an input tensor from one feature space to another via a nonlinear operation
         
@@ -104,9 +138,13 @@ class DenseGatedACT(bmt.DistributedModule):
 
         """
         # gate_score = self.act( self.w_0(x) )
-        gate_score = self.act( self.w_0(x) + self.w_0_lora(x) )
+        # gate_score = self.act( self.w_0(x) + self.w_0_lora(x) )
+        # import pdb
+        # pdb.set_trace()
+        gate_score = self.act( self.w_0(x) + get_combined_delta_hiddens(self.w_0_lora, x, lora_weights) )
         # x = self.w_1(x)
-        x = self.w_1(x) + self.w_1_lora(x)
+        #x = self.w_1(x) + self.w_1_lora(x)
+        x = self.w_1(x) + get_combined_delta_hiddens(self.w_1_lora, x, lora_weights)
         x = gate_score * x
         return x
 
@@ -137,13 +175,29 @@ class DenseACT(bmt.DistributedModule):
             init_std = init_std,
             bias = bias,
         )
-        self.w_lora = LowRankLinear(
-            in_features = dim_in,
-            out_features = dim_ff,
-            r=64,
-            lora_alpha=16,
-            lora_dropout=0.1,
-        )
+        self.w_lora = nn.ModuleDict({})
+        # self.w_lora = LowRankLinear(
+        #     in_features = dim_in,
+        #     out_features = dim_ff,
+        #     r=64,
+        #     lora_alpha=16,
+        #     lora_dropout=0.1,
+        # )
+        for module in [self.w_lora]:
+            module['zh'] = LowRankLinear(
+                in_features = dim_in,
+                out_features = dim_ff,
+                r=64,
+                lora_alpha = 16,
+                lora_dropout=0.1,
+            )
+            module['math'] = LowRankLinear(
+                in_features = dim_in,
+                out_features = dim_ff,
+                r=64,
+                lora_alpha = 16,
+                lora_dropout=0.1,
+            )
         
         if activate_fn == "relu":
             self.act = torch.nn.ReLU()
@@ -154,7 +208,7 @@ class DenseACT(bmt.DistributedModule):
         else:
             raise ValueError("Unsupported activation function: %s" % (activate_fn))
 
-    def forward(self, x : torch.Tensor):
+    def forward(self, x : torch.Tensor, lora_weights : torch.Tensor = None):
         """ This model inherits from bmt.DistributedModule. 
             Transform an input tensor from one feature space to another via a nonlinear operation
         
@@ -165,7 +219,8 @@ class DenseACT(bmt.DistributedModule):
             out (:obj:`torch.Tensor` of shape ``(batch, seq_len, dim_ff)``) 
         """
         # x = self.w(x)
-        x = self.w(x) + self.w_lora(x)
+        # x = self.w(x) + self.w_lora(x)
+        x = self.w(x) + get_combined_delta_hiddens(self.w_lora, x, lora_weights)
         x = self.act(x)  
         
         return x
@@ -248,18 +303,35 @@ class FeedForward(bmt.DistributedModule):
             init_std = init_std,
             bias = bias,
         )
-        self.w_out_lora = LowRankLinear(
-            in_features = dim_ff,
-            out_features = dim_out,
-            r=64,
-            lora_alpha=16,
-            lora_dropout=0.1,
-        )
+        # self.w_out_lora = LowRankLinear(
+        #     in_features = dim_ff,
+        #     out_features = dim_out,
+        #     r=64,
+        #     lora_alpha=16,
+        #     lora_dropout=0.1,
+        # )
+        self.w_out_lora = nn.ModuleDict({})
+
+        for module in [self.w_out_lora]:
+            module['zh'] = LowRankLinear(
+                in_features = dim_ff,
+                out_features = dim_out,
+                r=64,
+                lora_alpha = 16,
+                lora_dropout=0.1,
+            )
+            module['math'] = LowRankLinear(
+                in_features = dim_ff,
+                out_features = dim_out,
+                r=64,
+                lora_alpha = 16,
+                lora_dropout=0.1,
+            )
 
         self.int8 = int8
         self.length_scale = length_scale
 
-    def forward(self, x : torch.Tensor):
+    def forward(self, x : torch.Tensor, lora_weights : torch.Tensor = None,):
         """ 
         Args:
             x (:obj:`torch.Tensor` of shape ``(batch, seq_len, dim_in)``): The input of feed-forward module.
@@ -267,10 +339,11 @@ class FeedForward(bmt.DistributedModule):
         Return:
             :obj:`torch.Tensor` of shape ``(batch, seq_len, dim_out)``: The output of feed-forward module.
         """
-        x = self.w_in(x)
+        x = self.w_in(x, lora_weights)
 
         if self.dropout is not None:
             x = self.dropout(x)
         # x = self.w_out(x)    
-        x = self.w_out(x) + self.w_out_lora(x)
+        # x = self.w_out(x) + self.w_out_lora(x)
+        x = self.w_out(x) + get_combined_delta_hiddens(self.w_out_lora, x, lora_weights)
         return x

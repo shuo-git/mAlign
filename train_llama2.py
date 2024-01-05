@@ -18,6 +18,22 @@ import random
 from llama2_dataset import PromptIterableDataset, collator, load_sharegpt_data, load_alpaca_data, load_meta_math_data
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 
+def load_lora_weight(root_path,lora_name):
+    lora_weight_dict = torch.load(os.path.join(root_path,lora_name+"/lora.pt"))
+    keys_to_update = [key for key in lora_weight_dict.keys()]
+    # if lora_name == "en":
+    #     lora_name = "zh"
+    for key in keys_to_update:
+        ###向key中添加lora_name
+        new_key = key.split("lora_")[0]+lora_name+"."+"lora_"+key.split("lora_")[1]
+        # print(key)
+        # print(new_key)
+        ###更换成新key
+        lora_weight_dict[new_key] = lora_weight_dict.pop(key)
+    return lora_weight_dict
+
+
+
 def get_model_tokenizer(args):
     bmt.print_rank("loading tokenizer...")
     tokenizer = LlamaTokenizer.from_pretrained(args.model_name_or_path)
@@ -26,12 +42,26 @@ def get_model_tokenizer(args):
     model = Llama.from_pretrained(args.model_name_or_path)
     bmt.init_parameters(model)
     model.load_state_dict(torch.load(args.model_name_or_path + "/pytorch_model.pt"),strict=False)
+    #读取预训练的lora参数
+    lora_list = args.lora_list.split(',')
+    for lora in lora_list:
+        lora_weight_dict = load_lora_weight(args.lora_root_path,lora)
+        model.load_state_dict(lora_weight_dict,strict=False)
     for n,p in model.named_parameters():
         # if "lora" in n and ("project_q" in n or "project_v" in n):
-        if "lora" in n:
+        if "lora_fusion_gate" in n:
             p.requires_grad = True
         else:
             p.requires_grad = False
+    bmt.print_rank("finished")
+    
+
+    # for n,p in model.named_parameters():
+    #     # if "lora" in n and ("project_q" in n or "project_v" in n):
+    #     if "31" in n:
+    #         print(n)
+    # import pdb
+    # pdb.set_trace()
     bmt.print_rank("finished")
 
     for n,p in model.named_parameters():
@@ -148,6 +178,8 @@ def train(args):
     #     original_dataset += load_sharegpt_data(args.sharegpt_dataset, "zh")
     if args.metamath_dataset is not None:
         original_dataset += load_meta_math_data(args.metamath_dataset)
+    if args.few_shot_zh_math_dataset is not None:
+        original_dataset += load_meta_math_data(args.few_shot_zh_math_dataset)
 
     #打乱拼接后的数据
     random.shuffle(original_dataset)
@@ -305,6 +337,10 @@ if __name__ == "__main__":
     parser.add_argument("--alpaca_dataset_2", default=None, type=str)
     parser.add_argument("--metamath_dataset", default=None, type=str)
     parser.add_argument("--system_prompt", default=None, type=str)
+    parser.add_argument("--lora_list", default=None, type=str)
+    parser.add_argument("--lora_root_path", default=None, type=str)
+    parser.add_argument("--few_shot_zh_math_dataset", default=None, type=str)
+
 
 
     parser.add_argument("--lr", type=float, default=1e-5)

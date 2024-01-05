@@ -20,6 +20,7 @@ from .layernorm import LayerNorm
 from .feedforward import FeedForward
 import bmtrain as bmt
 from typing import *
+from .linear import Linear
 
 
 class SelfAttentionBlock(torch.nn.Module):
@@ -127,6 +128,7 @@ class SelfAttentionBlock(torch.nn.Module):
                 position_bias : Optional[torch.Tensor] = None,
                 use_cache : bool = False,
                 past_key_value = None,
+                lora_weights : torch.Tensor = None,
             ):
         """
         Args:
@@ -142,7 +144,7 @@ class SelfAttentionBlock(torch.nn.Module):
         if self.post_layer_norm:
             hidden_states = x
         if not self.sparse_attention:
-            x = self.self_attention(x, x, attention_mask, position_bias, use_cache, past_key_value)
+            x = self.self_attention(x, x, attention_mask, position_bias, use_cache, past_key_value, lora_weights)
         else:
             #no position bias for sparse attention
             x = self.self_attention(x, attention_mask, position_bias)
@@ -266,6 +268,7 @@ class CrossAttentionBlock(torch.nn.Module):
                 position_bias : Optional[torch.Tensor] = None,
                 use_cache : bool = False,
                 past_key_value = None,
+                lora_weights : torch.Tensor = None,
             ):
         """
         Args:
@@ -283,7 +286,7 @@ class CrossAttentionBlock(torch.nn.Module):
             hidden_states = x
 
         if not self.sparse_attention:
-            x = self.self_attention(x, key_value_states, attention_mask, position_bias, use_cache, past_key_value)
+            x = self.self_attention(x, key_value_states, attention_mask, position_bias, use_cache, past_key_value, lora_weights)
         else:
             #no position bias for sparse attention
             #to do
@@ -370,6 +373,7 @@ class FFNBlock(torch.nn.Module):
 
     def forward(self,
                 hidden_states : torch.Tensor,
+                lora_weights : torch.Tensor = None,
                ):
         """ 
         Args:
@@ -382,7 +386,7 @@ class FFNBlock(torch.nn.Module):
         x = self.layernorm_before_ffn(hidden_states)
         if self.post_layer_norm:
             hidden_states = x
-        x = self.ffn(x)
+        x = self.ffn(x,lora_weights)
         if self.dropout is not None:
             x = self.dropout(x)
         hidden_states = hidden_states + x
@@ -455,6 +459,12 @@ class TransformerBlock(torch.nn.Module):
         self.mask_ffn = mask_ffn
         self.is_decoder = is_decoder
         num_heads_kv = num_heads_kv if num_heads_kv != -1 else num_heads
+
+        num_of_lora = 2
+
+        ##kaiming_uniform
+        self.lora_fusion_gate = Linear(dim_in = dim_model, dim_out = num_of_lora, bias = False, cps = 2)
+
 
         if not mask_att:
             self.self_att = SelfAttentionBlock(
@@ -546,6 +556,14 @@ class TransformerBlock(torch.nn.Module):
 
         """    
         current_key_value = None
+        # import pdb
+        # pdb.set_trace()
+        hidden_detached = self_hidden_states.detach()
+        lora_scores = self.lora_fusion_gate(hidden_detached)
+        lora_weights = torch.softmax(lora_scores, dim=-1)
+        #提前做好维度扩展，便于后续进行矩阵乘法
+        lora_weights = lora_weights.unsqueeze(-1)
+        
         if not self.mask_att:
             # (batch, dim_model, seq_self)
             # add positional bias on sparse attention in the future
@@ -553,12 +571,14 @@ class TransformerBlock(torch.nn.Module):
                                         attention_mask = self_attention_mask,
                                         position_bias = self_position_bias,
                                         use_cache = use_cache,
-                                        past_key_value = past_key_value)
+                                        past_key_value = past_key_value,
+                                        lora_weights = lora_weights)
             if use_cache:
                 hidden_states, current_key_value = hidden_states
         else:
             hidden_states = self_hidden_states    
-
+        # import pdb
+        # pdb.set_trace()
         if self.is_decoder and self.cross_att is not None:
             if not self.mask_cross:
                 # (batch, dim_model, seq_self)
@@ -568,11 +588,13 @@ class TransformerBlock(torch.nn.Module):
                                             position_bias = cross_position_bias)
         if not self.mask_ffn:
             # (batch, dim_model, seq_self)
+            # import pdb
+            # pdb.set_trace()
             if self.parallel_ffn:
-                hidden_states_2 = self.ffn(self_hidden_states)
+                hidden_states_2 = self.ffn(self_hidden_states,lora_weights = lora_weights)
                 hidden_states = hidden_states - self_hidden_states + hidden_states_2
             else:
-                hidden_states = self.ffn(hidden_states)
+                hidden_states = self.ffn(hidden_states,lora_weights = lora_weights)
         
         if use_cache:
             return hidden_states, current_key_value

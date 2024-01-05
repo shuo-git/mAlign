@@ -26,10 +26,16 @@ class LowRankLinear(bmt.DistributedModule):
             self.lora_dropout = lambda x: x
         if r > 0:
             self.lora_A = Linear(dim_out = r, dim_in = in_features, cps = 2)
-            self.lora_B = Linear(dim_out = out_features, dim_in = r, cps = 1)
+            self.lora_B = Linear(dim_out = out_features, dim_in = r, cps = 1) ####TODO，改回1，改成2只是为了测试组合效果
             self.scaling = self.lora_alpha / self.r
 
     def forward(self, x):
         # import pdb
         # pdb.set_trace()
         return (self.lora_B(self.lora_A(self.lora_dropout(x)))) * self.scaling
+
+
+# loras = nn.ModuleDict({})
+# import pdb
+# pdb.set_trace()
+# loras['lora_1'] = LowRankLinear(in_features=768, out_features=768, r=64, lora_alpha=16, lora_dropout=0.1)
