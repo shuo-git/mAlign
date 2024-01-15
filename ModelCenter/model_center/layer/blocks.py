@@ -558,8 +558,14 @@ class TransformerBlock(torch.nn.Module):
         current_key_value = None
         # import pdb
         # pdb.set_trace()
-        hidden_detached = self_hidden_states.detach()
-        lora_scores = self.lora_fusion_gate(hidden_detached)
+        #### detach与否
+        # hidden_detached = self_hidden_states.detach()
+        # lora_scores = self.lora_fusion_gate(hidden_detached)
+
+        # import pdb
+        # pdb.set_trace()
+
+        lora_scores = self.lora_fusion_gate(self_hidden_states)
         lora_weights = torch.softmax(lora_scores, dim=-1)
         #提前做好维度扩展，便于后续进行矩阵乘法
         lora_weights = lora_weights.unsqueeze(-1)

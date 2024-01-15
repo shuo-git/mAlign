@@ -15,7 +15,7 @@ from model_center.model import Llama
 from model_center.tokenizer import LlamaTokenizer
 import random
 
-from llama2_dataset import PromptIterableDataset, collator, load_sharegpt_data, load_alpaca_data, load_meta_math_data
+from llama2_dataset import PromptIterableDataset, collator, load_sharegpt_data, load_alpaca_data, load_meta_math_data, load_few_shot_zh_math_data
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 
 def load_lora_weight(root_path,lora_name):
@@ -179,7 +179,7 @@ def train(args):
     if args.metamath_dataset is not None:
         original_dataset += load_meta_math_data(args.metamath_dataset)
     if args.few_shot_zh_math_dataset is not None:
-        original_dataset += load_meta_math_data(args.few_shot_zh_math_dataset)
+        original_dataset += load_few_shot_zh_math_data(args.few_shot_zh_math_dataset)
 
     #打乱拼接后的数据
     random.shuffle(original_dataset)

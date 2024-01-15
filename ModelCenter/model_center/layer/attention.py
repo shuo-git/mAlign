@@ -242,7 +242,7 @@ class Attention(bmt.DistributedModule):
                 delta_hiddens[lora_name] = loras[lora_name](x)
             delta_hiddens = [delta_hidden for delta_hidden in delta_hiddens.values()]
             delta_hiddens = torch.stack(delta_hiddens, dim=-1) #(batch_size, len_q, num_heads * dim_head, len(loras)
-            combined_delta_hiddens = torch.matmul(delta_hiddens, lora_weights)
+            combined_delta_hiddens = torch.matmul(delta_hiddens, lora_weights) #(8,4096,4096,2) 
             combined_delta_hiddens = combined_delta_hiddens.sum(dim=-1)
             return combined_delta_hiddens
 

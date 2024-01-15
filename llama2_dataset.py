@@ -60,6 +60,28 @@ def load_meta_math_data(data_file):
         new_data.append(temp_data)
     return new_data
 
+def load_few_shot_zh_math_data(data_file):
+    new_data = []
+    idx=0
+    if "meta" in data_file:
+        input_field = "query"
+        output_filed = "response"
+    else:
+        input_field = "question"
+        output_filed = "answer"
+    with open(data_file, 'r', encoding='utf-8') as file:
+        for line in file:
+            data = json.loads(line)
+            idx+=1
+            temp_id = f"few_shot_zh_math_{idx}"
+            temp_input = data.get(input_field).strip()
+            temp_output = data.get(output_filed).strip()
+            if temp_input == '' and temp_output == '':
+                continue
+            temp_data = {'id': temp_id, 'data': [temp_input, temp_output]}
+            new_data.append(temp_data)
+    return new_data
+
 def load_alpaca_data(data_file, lang='en'):
     new_data = []
     data = json.load(open(data_file, "r"))
@@ -72,6 +94,7 @@ def load_alpaca_data(data_file, lang='en'):
         temp_data = {'id': temp_id, 'data': [temp_input, temp_output]}
         new_data.append(temp_data)
     return new_data
+
 
 def load_sharegpt_data(data_file, lang='en'):
     new_data = []
@@ -159,7 +182,7 @@ class PromptIterableDataset(IterableDataset):
 
     def tokenize_example(self, example):
         # system = "<s>[INST] <<SYS>>\nYou are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe. Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.\n\nIf a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information.\n<</SYS>>\n\n"
-        if self.system_prompt is not None and "MetaMath" in example["id"]:
+        if self.system_prompt is not None and ("MetaMath" in example["id"] or "few_shot_zh_math" in example["id"]):
             # import pdb
             # pdb.set_trace()
             system = "<s>[INST] <<SYS>>\n"+ self.system_prompt +"\n<</SYS>>\n\n"
@@ -175,7 +198,11 @@ class PromptIterableDataset(IterableDataset):
             if i == 0:
                 # system and 1st user message
                 c_input = system + c + " [/INST]"
+                if "few_shot_zh_math" in example["id"]:
+                    c_input += "让我们一步一步地思考。"
                 tmp_tokenized_ids = self.tokenizer(c_input, add_special_tokens=False)["input_ids"]
+                # import pdb
+                # pdb.set_trace()
                 tokenized_ids += tmp_tokenized_ids
                 labels += [IGNORE_INDEX] * len(tmp_tokenized_ids)
             elif i % 2 == 1:
