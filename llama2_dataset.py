@@ -14,9 +14,24 @@ import bmtrain as bmt
 
 
 def load_jsonl_data(data_file):
-    with open(data_file)as f:
+    with open(data_file) as f:
         lines = f.readlines()
+    num_examples = len(lines)
+    bmt.print_rank(f"{data_file}: {num_examples} dialogues")
     return [json.loads(l) for l in lines]
+
+def load_doc_jsonl(data_file):
+    with open(data_file) as f:
+        lines = f.readlines()
+    num_examples = len(lines)
+    bmt.print_rank(f"{data_file}: {num_examples} documents")
+    new_data = []
+    for l in lines:
+        content = json.loads(l.strip())
+        temp_id = content['id']
+        temp_data = ['', content['data'].strip()]
+        new_data.append({'id': temp_id, 'data': temp_data})
+    return new_data
 
 def check_alternate_human_gpt(conv):
     length = len(conv)
@@ -35,8 +50,8 @@ def load_alpaca_data(data_file, lang='en'):
     content = json.load(open(data_file, 'r'))
     num_examples = len(content)
     bmt.print_rank(f"[{lang}-original data] {data_file}: {num_examples} dialogues")
-    for item in content:
-        temp_id = item['id']
+    for idx, item in enumerate(content):
+        temp_id = f"alpaca_{lang}_{idx}"
         temp_input = (item['instruction'].strip() + ' ' + item['input'].strip()).strip()
         temp_output = item['output'].strip()
         if temp_input == '' or temp_output == '':
@@ -85,7 +100,47 @@ def load_sharegpt_pro_data(data_file, des='en-original'):
     num_examples = len(data)
     bmt.print_rank(f"[{des} data] {data_file}: {num_examples} dialogues")
     return data
-    
+
+def load_meta_math_data(data_file):
+    new_data = []
+    with open(data_file) as f:
+        lines = f.readlines()
+    num_examples = len(lines)
+    bmt.print_rank(f"{data_file}: {num_examples} dialogues")
+
+    for idx, line in enumerate(lines):
+        item = json.loads(line.strip())
+        temp_id = f"Zh_MetaMath_{idx}_{item['type']}"
+        temp_input = item['query'].strip()
+        temp_output = item['response'].strip()
+        if temp_input == '' and temp_output == '':
+            continue
+        temp_data = {'id': temp_id, 'data': [temp_input, temp_output]}
+        new_data.append(temp_data)
+    return new_data
+
+def load_code_data(data_file):
+    new_data = []
+    with open(data_file) as f:
+        lines = f.readlines()
+    num_examples = len(lines)
+    bmt.print_rank(f"{data_file}: {num_examples} dialogues")
+
+    for idx, line in enumerate(lines):
+        content = json.loads(line.strip())
+        if 'problem' in content:
+            temp_input = content['problem']
+            temp_output = content['solution']
+        else:
+            temp_input = content['instruction']
+            temp_output = content['response']
+        temp_id = f"code_{idx}"
+        if temp_input == '' and temp_output == '':
+            continue
+        temp_data = {'id': temp_id, 'data': [temp_input, temp_output]}
+        new_data.append(temp_data)
+    return new_data
+
 IGNORE_INDEX=-100
 
 

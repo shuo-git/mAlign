@@ -32,6 +32,59 @@ def get_tokenized_length(ipt_list):
     return len(tokenized_ids)
 
 
+def load_alpaca_data(data_file, lang='en'):
+    new_data = []
+    content = json.load(open(data_file, 'r'))
+    num_examples = len(content)
+    bmt.print_rank(f"[{lang}-original data] {data_file}: {num_examples} dialogues")
+    for item in content:
+        temp_input = (item['instruction'].strip() + ' ' + item['input'].strip()).strip()
+        temp_output = item['output'].strip()
+        if get_tokenized_length([temp_input, temp_output]) > 4096:
+            continue
+        new_data.append(item)
+    bmt.print_rank(f"[{lang}-original data] {data_file}: {len(new_data)} dialogues left")
+    return new_data
+
+
+def load_code_data(data_file):
+    new_data = []
+    with open(data_file, 'r') as fr:
+        lines = fr.readlines()
+    for idx, line in enumerate(lines):
+        content = json.loads(line.strip())
+        if 'problem' in content:
+            temp_input = content['problem']
+            temp_output = content['solution']
+        else:
+            temp_input = content['instruction']
+            temp_output = content['response']
+        temp_id = f"code_{idx}"
+        t_l = get_tokenized_length([temp_input, temp_output])
+        if t_l < 4096:
+            new_data.append(line)
+    return new_data
+
+
+def load_jsonl_data(data_file):
+    new_data = []
+    with open(data_file) as f:
+        lines = f.readlines()
+    num_examples = len(lines)
+    bmt.print_rank(f"{data_file}: {num_examples} dialogues")
+    for l in lines:
+        content = json.loads(l.strip())
+        temp_list = content['data']
+        while get_tokenized_length(temp_list) > 4096 and len(temp_list) > 2:
+            temp_list = temp_list[:-2]
+        if get_tokenized_length(temp_list) > 4096:
+            continue
+        assert len(temp_list) % 2 == 0
+        new_content = {'id': content['id'], 'data': temp_list}
+        new_data.append(json.dumps(new_content, ensure_ascii=False) + '\n')
+    return new_data
+
+
 def check_alternate_human_gpt(conv):
     length = len(conv)
     if len(conv) % 2 != 0:
@@ -96,38 +149,11 @@ def get_by_id(ipt_list, tgt_id):
 
 
 if __name__ == "__main__":
-    en_dataset = load_sharegpt_data("sharegpt_clean_en_fschat_common.json")
-    # en_dataset = load_sharegpt_data("test_512.json")
-    en_ids = []
-    for data in en_dataset:
-        assert data["id"] not in en_ids
-        en_ids.append(data["id"])
-    
-    qs_dataset = load_sharegpt_q_switch_data("sharegpt_clean_en_fschat_q_switch_zh.json")
-    # qs_dataset = load_sharegpt_q_switch_data("test_512.json")
-    qs_ids = []
-    for data in qs_dataset:
-        assert data["id"] not in qs_ids
-        qs_ids.append(data["id"])
-    
-    shared_ids = []
-    for eid in en_ids:
-        if eid in qs_ids:
-            shared_ids.append(eid)
-    
-    shared_en_dataset = []
-    shared_qs_dataset = []
-    for sid in shared_ids:
-        en_item = get_by_id(en_dataset, sid)
-        qs_item = get_by_id(qs_dataset, sid)
-        assert len(en_item['data']) == len(qs_item['data'])
-        for i in range(1, len(en_item['data']), 2):
-            assert en_item['data'][i] == qs_item['data'][i]
-        shared_en_dataset.append(en_item)
-        shared_qs_dataset.append(qs_item)
-    
-    with open("/data/public/multilingual/exp_20230810/ShareGPT/sharegpt_clean_en_fschat_common_4k_filter_share.json", "w") as fw:
-        json.dump(shared_en_dataset, fw, ensure_ascii=False, indent=2)
-    
-    with open("/data/public/multilingual/exp_20230810/ShareGPT/sharegpt_clean_en_fschat_q_switch_zh_4k_filter_share.json", "w") as fw:
-        json.dump(shared_qs_dataset, fw, ensure_ascii=False, indent=2)
+    # new_dataset = load_jsonl_data(sys.argv[1])
+    # with open(sys.argv[2], 'w') as fw:
+    #     fw.writelines(new_dataset)
+    # new_dataset = load_alpaca_data(sys.argv[1], lang=sys.argv[3])
+    # json.dump(new_dataset, open(sys.argv[2], "w"), indent=2, ensure_ascii=False)
+    new_lines = load_code_data(sys.argv[1])
+    with open(sys.argv[2], 'w') as fw:
+        fw.writelines(new_lines)

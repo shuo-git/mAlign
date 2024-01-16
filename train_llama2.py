@@ -14,7 +14,7 @@ sys.path.append("/home/wangshuo1/code/mAlign")
 from model_center.model import Llama
 from model_center.tokenizer import LlamaTokenizer
 
-from llama2_dataset import PromptIterableDataset, collator, load_sharegpt_data, load_sharegpt_q_switch_data, load_sharegpt_pro_data, load_alpaca_data
+from llama2_dataset import PromptIterableDataset, collator, load_sharegpt_data, load_sharegpt_q_switch_data, load_sharegpt_pro_data, load_alpaca_data, load_jsonl_data, load_doc_jsonl, load_meta_math_data, load_code_data
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 
@@ -127,6 +127,29 @@ def train(args):
         original_dataset += load_alpaca_data(args.alpaca_fr_dataset, 'fr')
     if args.alpaca_ja_dataset is not None:
         original_dataset += load_alpaca_data(args.alpaca_ja_dataset, 'ja')
+    
+    if args.ultraknow_zh_dataset is not None:
+        original_dataset += load_jsonl_data(args.ultraknow_zh_dataset)
+    if args.ultraknow_ru_dataset is not None:
+        original_dataset += load_jsonl_data(args.ultraknow_ru_dataset)
+    if args.ultraknow_fr_dataset is not None:
+        original_dataset += load_jsonl_data(args.ultraknow_fr_dataset)
+    if args.ultraknow_es_dataset is not None:
+        original_dataset += load_jsonl_data(args.ultraknow_es_dataset)
+    if args.ultraknow_en_dataset is not None:
+        original_dataset += load_jsonl_data(args.ultraknow_en_dataset)
+
+    if args.doc_zh_dataset is not None:
+        original_dataset += load_doc_jsonl(args.doc_zh_dataset)
+    
+    if args.math_dataset is not None:
+        original_dataset += load_meta_math_data(args.math_dataset)
+    
+    if args.code_dataset is not None:
+        original_dataset += load_code_data(args.code_dataset)
+    
+    if args.dataset_length > 0:
+        original_dataset = original_dataset[:args.dataset_length]
 
     bmt.print_rank("total training instance number:", len(original_dataset))
     
@@ -232,20 +255,20 @@ def train(args):
 
 
             # save model
-            # if global_step % args.save_step == 0:
-            #     save_dir = os.path.join(args.save_dir, f"checkpoints/step_{global_step}")
-            #     os.makedirs(save_dir, exist_ok=True)
+            if global_step % args.save_step == 0:
+                save_dir = os.path.join(args.save_dir, f"checkpoints/step_{global_step}")
+                os.makedirs(save_dir, exist_ok=True)
 
-            #     bmt.save(model, os.path.join(save_dir, "pytorch_model.pt"))
-            #     print("saving optimizer state", os.path.join(save_dir, "optim.rank-%d.opt" % bmt.rank()))
-            #     torch.save(optimizer.state_dict(),
-            #                os.path.join(save_dir, "optim.rank-%d.opt" % bmt.rank()))
+                bmt.save(model, os.path.join(save_dir, "pytorch_model.pt"))
+                print("saving optimizer state", os.path.join(save_dir, "optim.rank-%d.opt" % bmt.rank()))
+                torch.save(optimizer.state_dict(),
+                           os.path.join(save_dir, "optim.rank-%d.opt" % bmt.rank()))
 
-            #     if bmt.rank() == 0:
-            #         # torch.save(optimizer.state_dict(), os.path.join(save_dir, "optimizer.pt"))
-            #         torch.save(lr_scheduler.state_dict(), os.path.join(save_dir, "scheduler.pt"))
-            #         tokenizer.save_pretrained(save_dir)
-            #     bmt.print_rank(f"model saved at {save_dir}")
+                if bmt.rank() == 0:
+                    # torch.save(optimizer.state_dict(), os.path.join(save_dir, "optimizer.pt"))
+                    torch.save(lr_scheduler.state_dict(), os.path.join(save_dir, "scheduler.pt"))
+                    tokenizer.save_pretrained(save_dir)
+                bmt.print_rank(f"model saved at {save_dir}")
             
             if global_step == args.train_iters:
                 break
@@ -282,6 +305,20 @@ if __name__ == "__main__":
     parser.add_argument("--alpaca_fr_dataset", default=None, type=str)
     parser.add_argument("--alpaca_ja_dataset", default=None, type=str)
 
+    parser.add_argument("--ultraknow_zh_dataset", default=None, type=str)
+    parser.add_argument("--ultraknow_ru_dataset", default=None, type=str)
+    parser.add_argument("--ultraknow_fr_dataset", default=None, type=str)
+    parser.add_argument("--ultraknow_es_dataset", default=None, type=str)
+    parser.add_argument("--ultraknow_en_dataset", default=None, type=str)
+
+    parser.add_argument("--doc_zh_dataset", default=None, type=str)
+
+    parser.add_argument("--math_dataset", default=None, type=str)
+
+    parser.add_argument("--code_dataset", default=None, type=str)
+
+    parser.add_argument("--dataset_length", default=-1, type=int)
+
 
     parser.add_argument("--lr", type=float, default=1e-5)
     parser.add_argument("--model_name_or_path", default='/mnt/data/user/tc_agi/user/chenyulin/llama/llama-7b')
@@ -291,7 +328,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_seq_length", default=2048, type=int)
     parser.add_argument("--batch_size_per_device", default=2, type=int)
     parser.add_argument("--logging_step", default=100, type=int)
-    # parser.add_argument("--save_step", default=50000, type=int)
+    parser.add_argument("--save_step", default=100, type=int)
     parser.add_argument("--data_dir", default=None, type=str)
     
     parser.add_argument("--gradient_accumulation_steps", default=1, type=int)
