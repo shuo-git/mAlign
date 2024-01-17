@@ -58,13 +58,17 @@ class Linear(bmt.DistributedModule):
             self.bias = None
         else:
             self.weight = bmt.DistributedParameter(
-                torch.empty((dim_out, dim_in), dtype=dtype),
-                init_method=bmt.ParameterInitializer(torch.nn.init.normal_, mean=init_mean, std=init_std)
+                torch.zeros((dim_out, dim_in), dtype=dtype),
             )
-            self.bias = bmt.DistributedParameter(
-                torch.empty((dim_out,), dtype=dtype),
-                init_method=bmt.ParameterInitializer(torch.nn.init.zeros_)
-            ) if bias else None
+            self.bias = None                        
+            # self.weight = bmt.DistributedParameter(
+            #     torch.empty((dim_out, dim_in), dtype=dtype),
+            #     init_method=bmt.ParameterInitializer(torch.nn.init.normal_, mean=init_mean, std=init_std)
+            # )
+            # self.bias = bmt.DistributedParameter(
+            #     torch.empty((dim_out,), dtype=dtype),
+            #     init_method=bmt.ParameterInitializer(torch.nn.init.zeros_)
+            # ) if bias else None
         self.length_scale = length_scale
         self.length_scale_before = length_scale_before
         self.int8 = int8

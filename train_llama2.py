@@ -48,25 +48,16 @@ def get_model_tokenizer(args):
         lora_weight_dict = load_lora_weight(args.lora_root_path,lora)
         model.load_state_dict(lora_weight_dict,strict=False)
     for n,p in model.named_parameters():
-        # if "lora" in n and ("project_q" in n or "project_v" in n):
-        if "lora_fusion_gate" in n:
+        if "lora_fusion_gate" in n or "weight_bias" in n:
             p.requires_grad = True
+            # print(f"name {n} {p}")
         else:
             p.requires_grad = False
     bmt.print_rank("finished")
-    
-
+    # print(f"model parameters: {dict(model.named_parameters()).keys()}")
     # for n,p in model.named_parameters():
-    #     # if "lora" in n and ("project_q" in n or "project_v" in n):
-    #     if "31" in n:
+    #     if p.requires_grad:
     #         print(n)
-    # import pdb
-    # pdb.set_trace()
-    bmt.print_rank("finished")
-
-    for n,p in model.named_parameters():
-        if p.requires_grad:
-            print(n)
 
     # import pdb
     # pdb.set_trace()
@@ -189,7 +180,7 @@ def train(args):
     bmt.print_rank("total training instance number:", len(original_dataset))
     
     args.train_iters = int((args.epochs * len(original_dataset)) / (args.batch_size_per_device * bmt.world_size())) + 1
-    args.warmup_iters = int(args.train_iters * 0.04)
+    args.warmup_iters = int(args.train_iters * 0.2)
     bmt.print_rank("total training iterations:", args.train_iters)
     bmt.print_rank("warm-up iterations:", args.warmup_iters)
 
