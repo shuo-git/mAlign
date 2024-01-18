@@ -461,7 +461,7 @@ class TransformerBlock(torch.nn.Module):
         num_heads_kv = num_heads_kv if num_heads_kv != -1 else num_heads
 
         num_of_lora = 2
-        self.weight_bias = bmt.DistributedParameter(torch.tensor([[0,1]]).to(dtype))
+        self.weight_bias = bmt.DistributedParameter(torch.tensor([[-0.45,0.6]]).to(dtype))
         ##kaiming_uniform
         self.lora_fusion_gate = Linear(dim_in = dim_model, dim_out = num_of_lora, bias = False, cps = 3)
 
@@ -566,7 +566,8 @@ class TransformerBlock(torch.nn.Module):
         # pdb.set_trace()
 
         lora_scores = self.lora_fusion_gate(self_hidden_states)
-        lora_weights = torch.softmax(lora_scores, dim=-1)
+        lora_weights = torch.sigmoid_(lora_scores)
+        # lora_weights = torch.softmax(lora_scores, dim=-1)
         # print(f"lora_weights {lora_weights.shape} self.weight_bias {self.weight_bias.shape}")
         lora_weights = lora_weights + self.weight_bias.unsqueeze(0)
         #提前做好维度扩展，便于后续进行矩阵乘法

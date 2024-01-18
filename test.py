@@ -14,6 +14,5 @@ weight_bias_expanded = weight_bias.unsqueeze(1)  # 现在形状是(1, 1, 2)
 
 # 由于weight的seq_len维度是大小不为1的维度，PyTorch将会自动扩展weight_bias
 # 来匹配这个维度，执行广播相加
-result = weight + weight_bias_expanded
-a = torch.tensor([[0,1]])
-print(a.shape)
+result = torch.sigmoid_(weight) + weight_bias_expanded
+print(result)
